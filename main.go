@@ -16,54 +16,67 @@ var cache *pokecache.Cache
 
 func main() {
 	cache = pokecache.NewCache(5* time.Second)
+	var argument string
 	var commands map[string]cliCommand
 	commands = map[string]cliCommand{
 		"exit": {
 			name:        	"exit",
 			description: 	"Exit the Pokedex",
-			callback:    	commandExit,
+			callback:    	func(arg string) error {
+							return commandExit(argument)
+			},
 			},
 		
 		"help": {
 			name:			"help",
 			description:	"Displays a help message",
-			callback: 		func() error {
+			callback: 		func(arg string) error {
 							return commandHelp(commands)
 			},
 			},
 		"map": {
 			name:			"map",
 			description:	"Displays the next 20 location areas",
-			callback:		commandMap,
-
+			callback:		func(arg string) error {
+							return commandMap(argument)
 			},
+    		},
 		"mapb": {
 			name:			"mapb",
 			description:	"Displays the previous 20 location areas",
-			callback: 		commandMapb,
+			callback: 		func(arg string) error {
+							return commandMapb(argument)
+			},
 			},
 		"explore": {
 			name:			"explore",
 			description: 	"Lists Pokemon available at a given location",
-			callback:		func() error {
-							return commandExplore()
+			callback:		func(arg string) error {
+							return commandExplore(argument)
 			},
-		},
+			},
 
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("Pokedex > ")
+		 fmt.Print("Pokedex > ")
 		if scanner.Scan() {
 			line := scanner.Text()
 			cleanLine := cleanInput(line)
+			if len(cleanLine) > 1 {
+				argument = cleanLine[1]
+			}
+			if len(cleanLine) > 2 {
+				fmt.Print("too many arguments")
+				return
+			}
 			command := cleanLine[0]
 			if _, ok := commands[command]; !ok {
 				fmt.Println("Unknown command")
 				continue
 			}
-			err := commands[command].callback()
+			err := commands[command].callback(argument)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -81,7 +94,7 @@ func cleanInput(text string) []string {
 
 }
 
-func commandExit() error {
+func commandExit(arg string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0) 
 	return nil
@@ -118,10 +131,10 @@ func makeRequest(direction string, db any) error{
 		}
 		err = json.Unmarshal(data, db) 
 		if err!= nil {
-			return err
+			return err 
 		}
 		
-		return nil
+		return nil 
 	}
 
 func printLocations(direction string) error{
@@ -144,7 +157,7 @@ func (client *APIclient) UpdateURL(newURL string) {
 	client.URL = newURL
 }
 
-func commandMap() error{
+func commandMap(arg string) error{
 	if clients.Next == "" {
 		clients.Next = client.URL
 	}
@@ -152,7 +165,7 @@ func commandMap() error{
 	return nil
 }
 
-func commandMapb() error{
+func commandMapb(arg string) error{
 	if clients.Previous == client.URL || clients.Previous == ""{
 		return fmt.Errorf("you're on the first page")
 	}
@@ -162,25 +175,32 @@ func commandMapb() error{
 }
 
 func commandExplore(location string) error{
-	if val, ok := cache.Get(location); ok {
+	locationUrl := client.URL + "/" + location
+	fmt.Println(locationUrl)
+	if val, ok := cache.Get(locationUrl); ok {
 		err := json.Unmarshal(val, &areas) 
 		if err != nil {
 			return err
 		}
-		return nil
-	makeRequest(location, &areas)
-	for _, rate := range &areas.EncounterMethodRates {
-		fmt.Println(rate.EncounterMethod.Name)
+	} else {
+		err := makeRequest(locationUrl, areas) 
+		if err != nil {
+			return err
 		}
 	}
+	for _, pokemon := range areas.EncounterMethodRates {
+		fmt.Println(pokemon.Pokemon.Name)
+		}
+	
 	return nil
 }
+
 	
 
 type cliCommand struct {
 	name		string
 	description string
-	callback	func() error
+	callback	func(arg string) error
 }
 
 type config struct {
@@ -198,7 +218,7 @@ type APIclient struct {
 
 type LocationArea struct {
 	EncounterMethodRates []struct {
-		EncounterMethod struct {
+		Pokemon struct {
 			Name 	string 
 			URL  	string 
 		}
