@@ -10,6 +10,7 @@ import (
 		"io"
 		"github.com/saunaa/pokedexcli/internal/pokecache"
 		"time"
+		
 	)
 
 var cache *pokecache.Cache 
@@ -57,10 +58,11 @@ func main() {
 			},
 
 	}
-
+	pokeascii := PrintPokemonAscii()
+	fmt.Println(pokeascii)
 	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		 fmt.Print("Pokedex > ")
+	for {	
+		fmt.Print("Pokedex > ")
 		if scanner.Scan() {
 			line := scanner.Text()
 			cleanLine := cleanInput(line)
@@ -113,7 +115,6 @@ func commandHelp(commands map[string]cliCommand) error {
 
 
 func makeRequest(direction string, db any) error{ 
-		client.UpdateURL(direction)
 		res, err := http.Get(client.URL)
 		if err != nil {
 			return err
@@ -145,6 +146,7 @@ func printLocations(direction string) error{
 		return nil
 	}
 }
+	client.UpdateURL(direction)
 	makeRequest(direction, &clients)
 	for _, result := range clients.Results {
 	fmt.Println(result.Name)
@@ -176,19 +178,18 @@ func commandMapb(arg string) error{
 
 func commandExplore(location string) error{
 	locationUrl := client.URL + "/" + location
-	fmt.Println(locationUrl)
 	if val, ok := cache.Get(locationUrl); ok {
 		err := json.Unmarshal(val, &areas) 
 		if err != nil {
 			return err
 		}
 	} else {
-		err := makeRequest(locationUrl, areas) 
+		err := makeRequest(locationUrl, &areas) 
 		if err != nil {
 			return err
 		}
 	}
-	for _, pokemon := range areas.EncounterMethodRates {
+	for _, pokemon := range areas.Pokemon_encounters {
 		fmt.Println(pokemon.Pokemon.Name)
 		}
 	
@@ -217,7 +218,7 @@ type APIclient struct {
 }
 
 type LocationArea struct {
-	EncounterMethodRates []struct {
+	Pokemon_encounters []struct {
 		Pokemon struct {
 			Name 	string 
 			URL  	string 
