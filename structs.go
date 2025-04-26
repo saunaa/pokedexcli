@@ -1,0 +1,30 @@
+package main
+
+type cliCommand struct {
+	name		string
+	description string
+	callback	func(arg string) error
+}
+
+type config struct {
+	Next		string
+	Previous	string
+	Results		[]struct {
+					Name	string
+					Url		string
+	}
+}
+
+type APIclient struct {
+	URL		string
+}
+
+type LocationArea struct {
+	EncounterMethodRates []struct {
+		Pokemon struct {
+			Name 	string 
+			URL  	string 
+		}
+	}
+}
+
