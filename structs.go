@@ -20,7 +20,7 @@ type APIclient struct {
 }
 
 type LocationArea struct {
-	EncounterMethodRates []struct {
+	Pokemon_encounters []struct {
 		Pokemon struct {
 			Name 	string 
 			URL  	string 
@@ -28,3 +28,26 @@ type LocationArea struct {
 	}
 }
 
+type Pokemon struct {
+	Name				string
+	Base_experience		int
+	Height				int
+	Weight				int
+	Stats 				[]struct {
+						Base_stat		int
+						Stat			Stat
+
+	}
+	Types				[]struct {
+						Type		Type
+	}
+}
+
+type Stat struct {
+	Name			string
+
+}
+
+type Type struct {
+	Name			string
+}
