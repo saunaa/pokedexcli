@@ -4,8 +4,8 @@ import (
     "io/ioutil"
 )
 
-func PrintPokemonAscii() string{
-    b, err := ioutil.ReadFile("pokemon_ascii.txt")
+func PrintPokemonAscii(ascii_file string) string{
+    b, err := ioutil.ReadFile(ascii_file)
     if err != nil {
         panic(err)
     }
