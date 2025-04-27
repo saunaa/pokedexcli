@@ -10,13 +10,15 @@ import (
 		"io"
 		"github.com/saunaa/pokedexcli/internal/pokecache"
 		"time"
-		
+		"math/rand"
 	)
 
-var cache *pokecache.Cache 
+var cache *pokecache.Cache
+
+
 
 func main() {
-	cache = pokecache.NewCache(5* time.Second)
+
 	var argument string
 	var commands map[string]cliCommand
 	commands = map[string]cliCommand{
@@ -56,9 +58,34 @@ func main() {
 							return commandExplore(argument)
 			},
 			},
+		"catch":  {
+			name: 			"catch",
+			description:	"Throw a pokeball at a pokemon",
+			callback:		func(arg string) error {
+							return commandCatch(argument)
+			},
+			},
+		"inspect": {
+			name:			"inspect",
+			description:	"Inspect a pokemon",
+			callback:		func(arg string) error {
+							return commandInspect(argument)
+			},
+			},
+		"pokedex": {		
+			name:			"pokedex",
+			description:	"Shows the pokemon you caught",
+			callback:		func(arg string) error {
+							return commandPokedex(argument)
+			},
+		},
 
 	}
-	pokeascii := PrintPokemonAscii()
+
+
+	cache = pokecache.NewCache(30* time.Minute)
+
+	pokeascii := PrintPokemonAscii("pokemon_ascii.txt")
 	fmt.Println(pokeascii)
 	scanner := bufio.NewScanner(os.Stdin)
 	for {	
@@ -75,7 +102,7 @@ func main() {
 			}
 			command := cleanLine[0]
 			if _, ok := commands[command]; !ok {
-				fmt.Println("Unknown command")
+				fmt.Println("Unknown command. Type help to list commands!")
 				continue
 			}
 			err := commands[command].callback(argument)
@@ -114,8 +141,8 @@ func commandHelp(commands map[string]cliCommand) error {
 }
 
 
-func makeRequest(direction string, db any) error{ 
-		res, err := http.Get(client.URL)
+func makeRequest(direction, request string, db any) error{ 
+		res, err := http.Get(request)
 		if err != nil {
 			return err
 		}
@@ -147,7 +174,7 @@ func printLocations(direction string) error{
 	}
 }
 	client.UpdateURL(direction)
-	makeRequest(direction, &clients)
+	makeRequest(direction, client.URL, &clients)
 	for _, result := range clients.Results {
 	fmt.Println(result.Name)
 	}
@@ -184,7 +211,7 @@ func commandExplore(location string) error{
 			return err
 		}
 	} else {
-		err := makeRequest(locationUrl, &areas) 
+		err := makeRequest(locationUrl,locationUrl, &areas) 
 		if err != nil {
 			return err
 		}
@@ -196,35 +223,77 @@ func commandExplore(location string) error{
 	return nil
 }
 
-	
-
-type cliCommand struct {
-	name		string
-	description string
-	callback	func(arg string) error
-}
-
-type config struct {
-	Next		string
-	Previous	string
-	Results		[]struct {
-					Name	string
-					Url		string
-	}
-}
-
-type APIclient struct {
-	URL		string
-}
-
-type LocationArea struct {
-	Pokemon_encounters []struct {
-		Pokemon struct {
-			Name 	string 
-			URL  	string 
+func commandCatch(pokemonName string) error{
+	pokemonUrl := "https://pokeapi.co/api/v2/pokemon/" + pokemonName
+	var pokemon = &Pokemon{}
+	throw := fmt.Sprintf("Throwing a Pokeball at %v...", pokemonName)
+	fmt.Println(throw)
+	pokeascii := PrintPokemonAscii("pokeball_ascii.txt")
+	fmt.Println(pokeascii)
+	if val, ok := cache.Get(pokemonUrl); ok{
+		err := json.Unmarshal(val, &pokemon)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := makeRequest(pokemonUrl, pokemonUrl, &pokemon)
+		if err != nil {
+			return err
 		}
 	}
+	odds := int(pokemon.Base_experience/40)
+	catch := rand.Intn(odds+1)
+	if odds != catch {
+		escaped := fmt.Sprintf("%v escaped!", pokemonName)
+		fmt.Println(escaped)
+		return nil
+	}
+	pokedex[pokemonName] = *pokemon
+	cought := fmt.Sprintf("%v was cought!", pokemonName)
+	fmt.Println(cought)
+	return nil
 }
+
+
+func commandInspect(pokemonName string) error{
+	pkm, ok := pokedex[pokemonName] 
+	if !ok {
+		return fmt.Errorf("you have not cought that pokemon")
+	}
+	name := fmt.Sprintf("Name: %v", pkm.Name)
+	height := fmt.Sprintf("Height: %v", pkm.Height)
+	weight := fmt.Sprintf("Weight: %v", pkm.Weight)
+	fmt.Println("")
+	fmt.Println(name)
+	fmt.Println(height)
+	fmt.Println(weight)
+	fmt.Println("Stats:")
+	for _, stat:= range pkm.Stats {
+		pokemonstats := fmt.Sprintf("	-%v: %v", stat.Stat.Name, stat.Base_stat)
+		fmt.Println(pokemonstats)
+	}
+	fmt.Println("Types:")
+	for _, typ := range pkm.Types {
+		pokemontypes := fmt.Sprintf("	- %v", typ.Type.Name)
+		fmt.Println(pokemontypes)
+
+	}
+	return nil
+	
+}
+
+func commandPokedex(argument string) error{
+	if len(pokedex) == 0 {
+		return fmt.Errorf("You haven't caught any Pokemon")
+	}
+	fmt.Println("Your Pokedex:")
+	for _, pkm := range pokedex {
+		name := fmt.Sprintf("	-%v", pkm.Name)
+		fmt.Println(name)	
+	}
+	return nil
+}
+
 
 
 var client = &APIclient{
@@ -233,3 +302,9 @@ var client = &APIclient{
 var clients = &config{}
 
 var areas = &LocationArea{}
+
+var pokedex map[string]Pokemon
+
+func init() {
+	pokedex = make(map[string]Pokemon)
+}
