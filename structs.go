@@ -33,6 +33,7 @@ type Pokemon struct {
 	Base_experience		int
 	Height				int
 	Weight				int
+	Sprites				Sprite
 	Stats 				[]struct {
 						Base_stat		int
 						Stat			Stat
@@ -50,4 +51,9 @@ type Stat struct {
 
 type Type struct {
 	Name			string
+}
+
+type Sprite struct {
+	Back_default	string
+	Front_default	string
 }
