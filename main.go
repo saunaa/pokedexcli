@@ -260,9 +260,23 @@ func commandInspect(pokemonName string) error{
 	if !ok {
 		return fmt.Errorf("you have not cought that pokemon")
 	}
+	if val, ok := cache.Get(pkm.Sprites.Front_default); ok {
+		err := image.Decode(val, &areas) 
+		if err != nil {
+			return err
+		}
+		Convert_image(val)
+	}else {
+		img, err := getImage(pkm.Sprites.Front_default)
+		if err != nil {
+			return err
+		}
+		Convert_image(img)
+	}
 	name := fmt.Sprintf("Name: %v", pkm.Name)
 	height := fmt.Sprintf("Height: %v", pkm.Height)
 	weight := fmt.Sprintf("Weight: %v", pkm.Weight)
+	Convert_image(pkm.Sprites.Front_default)
 	fmt.Println("")
 	fmt.Println(name)
 	fmt.Println(height)
@@ -294,6 +308,31 @@ func commandPokedex(argument string) error{
 	return nil
 }
 
+func getImage(image_url string) (img, error){
+	res, err := http.Get(image_url)
+		if err != nil {
+			return nil, err
+		}
+		data, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		res.Body.Close()
+		if res.StatusCode > 299 {
+			return fmt.Errorf("connection failed")
+		
+		cache.Add(image_url, data)
+
+		}
+		img, err = image.Decode(data) 
+		if err!= nil {
+			return nil, err
+		
+		
+		}
+		return img, err
+
+}
 
 
 var client = &APIclient{
