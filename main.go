@@ -11,6 +11,10 @@ import (
 		"github.com/saunaa/pokedexcli/internal/pokecache"
 		"time"
 		"math/rand"
+		"image"
+		"bytes"
+		"image/draw"
+		
 	)
 
 var cache *pokecache.Cache
@@ -87,6 +91,7 @@ func main() {
 
 	pokeascii := PrintPokemonAscii("pokemon_ascii.txt")
 	fmt.Println(pokeascii)
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for {	
 		fmt.Print("Pokedex > ")
@@ -97,8 +102,8 @@ func main() {
 				argument = cleanLine[1]
 			}
 			if len(cleanLine) > 2 {
-				fmt.Print("too many arguments")
-				return
+				fmt.Println("too many arguments")
+				continue
 			}
 			command := cleanLine[0]
 			if _, ok := commands[command]; !ok {
@@ -241,7 +246,7 @@ func commandCatch(pokemonName string) error{
 			return err
 		}
 	}
-	odds := int(pokemon.Base_experience/40)
+	odds := int(pokemon.Base_experience/100)
 	catch := rand.Intn(odds+1)
 	if odds != catch {
 		escaped := fmt.Sprintf("%v escaped!", pokemonName)
@@ -261,22 +266,21 @@ func commandInspect(pokemonName string) error{
 		return fmt.Errorf("you have not cought that pokemon")
 	}
 	if val, ok := cache.Get(pkm.Sprites.Front_default); ok {
-		err := image.Decode(val, &areas) 
+		img, _, err := image.Decode(bytes.NewReader(val)) 
 		if err != nil {
 			return err
 		}
-		Convert_image(val)
+		Convert_image(trimImage(img))
 	}else {
 		img, err := getImage(pkm.Sprites.Front_default)
 		if err != nil {
 			return err
 		}
-		Convert_image(img)
+		Convert_image(trimImage(img))
 	}
 	name := fmt.Sprintf("Name: %v", pkm.Name)
 	height := fmt.Sprintf("Height: %v", pkm.Height)
 	weight := fmt.Sprintf("Weight: %v", pkm.Weight)
-	Convert_image(pkm.Sprites.Front_default)
 	fmt.Println("")
 	fmt.Println(name)
 	fmt.Println(height)
@@ -289,7 +293,7 @@ func commandInspect(pokemonName string) error{
 	fmt.Println("Types:")
 	for _, typ := range pkm.Types {
 		pokemontypes := fmt.Sprintf("	- %v", typ.Type.Name)
-		fmt.Println(pokemontypes)
+		fmt.Println(pokemontypes) 
 
 	}
 	return nil
@@ -308,8 +312,8 @@ func commandPokedex(argument string) error{
 	return nil
 }
 
-func getImage(image_url string) (img, error){
-	res, err := http.Get(image_url)
+func getImage(image_url string) (image.Image, error){
+		res, err := http.Get(image_url)
 		if err != nil {
 			return nil, err
 		}
@@ -319,12 +323,12 @@ func getImage(image_url string) (img, error){
 		}
 		res.Body.Close()
 		if res.StatusCode > 299 {
-			return fmt.Errorf("connection failed")
+			return nil, fmt.Errorf("connection failed")
 		
 		cache.Add(image_url, data)
 
 		}
-		img, err = image.Decode(data) 
+		img ,_ , err := image.Decode(bytes.NewReader(data)) 
 		if err!= nil {
 			return nil, err
 		
@@ -334,6 +338,35 @@ func getImage(image_url string) (img, error){
 
 }
 
+func trimImage(img image.Image) image.Image {
+	bounds := img.Bounds()
+	minX, minY, maxX, maxY := bounds.Max.X, bounds.Max.Y, bounds.Min.X, bounds.Min.Y
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			_, _, _, a := img.At(x, y).RGBA()
+			if a != 0 {
+				if x < minX {
+					minX = x
+				}
+				if y < minY {
+					minY = y
+				}
+				if x > maxX {
+					maxX = x
+				}
+				if y > maxY {
+					maxY = y
+				}
+			}
+		}
+	}
+	rect := image.Rect(minX, minY, maxX+1, maxY+1)
+	croppedImg := image.NewRGBA(rect)
+	draw.Draw(croppedImg, rect, img, image.Point{X: minX, Y: minY}, draw.Src)
+
+	return croppedImg
+}
 
 var client = &APIclient{
 	URL: 		"https://pokeapi.co/api/v2/location-area",
